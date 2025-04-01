@@ -1,0 +1,1977 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Lightning Messages</title>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+        />
+        <style>
+            .message-item {
+                padding: 10px;
+                margin-bottom: 10px;
+                border-radius: 4px;
+                background-color: #f5f5f5;
+            }
+            .message-item.outgoing {
+                background-color: #eef6fc;
+                text-align: right;
+            }
+            .message-item .timestamp {
+                font-size: 0.8em;
+                color: #666;
+            }
+            .message-item .amount {
+                font-weight: bold;
+                color: #485fc7;
+            }
+            .message-item .pubkey {
+                font-family: monospace;
+                font-size: 0.8em;
+            }
+            #messageList {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+            #conversationsList {
+                max-height: 200px;
+                overflow-y: auto;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            #conversationsList button {
+                margin-bottom: 5px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                height: auto;
+                padding: 8px 10px;
+            }
+
+            .is-divider {
+                display: flex;
+                align-items: center;
+                text-align: center;
+                margin: 1rem 0;
+            }
+
+            .is-divider::before,
+            .is-divider::after {
+                content: "";
+                flex: 1;
+                border-bottom: 1px solid #dbdbdb;
+            }
+
+            .is-divider[data-content]::after {
+                margin-left: 0.5em;
+            }
+
+            .is-divider[data-content]::before {
+                margin-right: 0.5em;
+            }
+
+            .is-divider[data-content] {
+                font-size: 0.75rem;
+                color: #7a7a7a;
+            }
+
+            #currentFilter {
+                padding: 5px;
+                border-radius: 4px;
+                background-color: #f5f5f5;
+                margin-bottom: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <section class="section">
+            <div class="container">
+                <h1 class="title">Lightning Messages</h1>
+
+                <!-- Node Management Section -->
+                <div class="box">
+                    <h2 class="subtitle">Node Management</h2>
+                    <form id="nodeForm">
+                        <div class="field">
+                            <label class="label">REST Endpoint</label>
+                            <div class="control">
+                                <input
+                                    class="input"
+                                    type="text"
+                                    id="restEndpoint"
+                                    placeholder="https://your-lnd-node:8080"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Macaroon (HEX)</label>
+                            <div class="control">
+                                <input
+                                    class="input"
+                                    type="password"
+                                    id="macaroon"
+                                    placeholder="Enter your macaroon in hex format"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="control">
+                                <button type="submit" class="button is-info">
+                                    Save Node
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Node Selection -->
+                <div class="box">
+                    <h2 class="subtitle">Select Active Node</h2>
+                    <div class="field">
+                        <div class="control" id="nodeSelector">
+                            <!-- Node buttons will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="field" id="activeNodeInfo">
+                        <!-- Active node pubkey will be displayed here -->
+                        <p class="is-size-7 has-text-grey">
+                            No active node selected
+                        </p>
+                    </div>
+                    <div class="field">
+                        <label class="label">Poll Interval (seconds)</label>
+                        <div class="control">
+                            <input
+                                class="input"
+                                type="number"
+                                id="pollIntervalInput"
+                                value="5"
+                                min="1"
+                                max="60"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box">
+                    <h2 class="subtitle">Conversations</h2>
+                    <div class="field">
+                        <div class="control">
+                            <button
+                                class="button is-info"
+                                id="allConversationsBtn"
+                            >
+                                All Messages
+                            </button>
+                            <div class="is-divider" data-content="OR"></div>
+                            <div id="conversationsList" class="buttons">
+                                <!-- Conversation buttons will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keysend Form -->
+                <div class="box">
+                    <h2 class="subtitle">Send Message</h2>
+                    <form id="keysendForm">
+                        <div class="field">
+                            <label class="label">Destination Pubkey</label>
+                            <div class="control">
+                                <input
+                                    class="input"
+                                    type="text"
+                                    id="pubkey"
+                                    placeholder="Enter destination pubkey"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Amount (sats)</label>
+                            <div class="control">
+                                <input
+                                    class="input"
+                                    type="number"
+                                    id="amount"
+                                    placeholder="Enter amount in sats"
+                                    required
+                                    value="10"
+                                    min="1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Message</label>
+                            <div class="control">
+                                <textarea
+                                    class="textarea"
+                                    id="message"
+                                    placeholder="Enter your message"
+                                    required
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="control">
+                                <button
+                                    type="submit"
+                                    class="button is-primary"
+                                    id="sendButton"
+                                    disabled
+                                >
+                                    Send Message
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Message Board -->
+                <div class="box">
+                    <h2 class="subtitle">Messages</h2>
+                    <div id="messageBoard" class="messages">
+                        <div class="content">
+                            <div id="messageList">
+                                <!-- Messages will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Response section -->
+                <div id="response" class="notification is-hidden">
+                    <!-- Response messages will be inserted here -->
+                </div>
+            </div>
+        </section>
+        <script>
+            const CONFIG = {
+                defaultPollInterval: 5000, // 5 seconds
+                maxHistoricalPayments: 100, // Number of historical payments to load
+                maxHistoricalInvoices: 100, // Number of historical invoices to load
+                debug: true, // Enable console logging of raw payments/invoices
+                keysendInvoiceLabel: "keysend_message", // Label for our keysend tracking invoices
+            };
+
+            let currentConversationFilter = null;
+            let activeNode = null;
+            let pollInterval;
+            let lastInvoiceIndex = null;
+
+            async function saveNode(endpoint, macaroon) {
+                try {
+                    // Try to connect to the node and get its info before saving
+                    const response = await fetch(`${endpoint}/v1/getinfo`, {
+                        headers: {
+                            "Grpc-Metadata-macaroon": macaroon,
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(
+                            `Connection failed: ${response.status} ${response.statusText}`,
+                        );
+                    }
+
+                    const nodeInfo = await response.json();
+                    const nodePubkey = nodeInfo.identity_pubkey;
+
+                    if (!nodePubkey) {
+                        throw new Error("Failed to retrieve node pubkey");
+                    }
+
+                    // If successful, save the node info including the pubkey
+                    const nodes = JSON.parse(
+                        localStorage.getItem("lightning_nodes") || "{}",
+                    );
+                    const alias = nodeInfo.alias || nodePubkey; // Use node's real alias if available (pubkey otherwise)
+
+                    nodes[alias] = {
+                        endpoint,
+                        macaroon,
+                        pubkey: nodePubkey,
+                        identity_alias: alias,
+                    };
+
+                    localStorage.setItem(
+                        "lightning_nodes",
+                        JSON.stringify(nodes),
+                    );
+                    updateNodeSelector();
+
+                    // Show success message
+                    const responseDiv = document.getElementById("response");
+                    responseDiv.className = "notification is-success";
+                    responseDiv.textContent = `Node "${alias}" connected successfully!`;
+                    responseDiv.classList.remove("is-hidden");
+
+                    setTimeout(() => {
+                        responseDiv.classList.add("is-hidden");
+                    }, 3000);
+
+                    return true;
+                } catch (error) {
+                    console.error("Failed to connect to node:", error);
+
+                    // Show error message
+                    const responseDiv = document.getElementById("response");
+                    responseDiv.className = "notification is-danger";
+                    responseDiv.textContent = `Failed to connect to node: ${error.message}`;
+                    responseDiv.classList.remove("is-hidden");
+
+                    setTimeout(() => {
+                        responseDiv.classList.add("is-hidden");
+                    }, 5000);
+
+                    return false;
+                }
+            }
+
+            function getNodes() {
+                return JSON.parse(
+                    localStorage.getItem("lightning_nodes") || "{}",
+                );
+            }
+
+            function setActiveNode(alias) {
+                const nodes = getNodes();
+                if (nodes[alias]) {
+                    activeNode = {
+                        alias,
+                        ...nodes[alias],
+                    };
+                    document.querySelectorAll(".node-button").forEach((btn) => {
+                        btn.classList.remove("is-success");
+                        if (btn.dataset.alias === alias) {
+                            btn.classList.add("is-success");
+                        }
+                    });
+                    document.getElementById("sendButton").disabled = false;
+
+                    const activeNodeInfo =
+                        document.getElementById("activeNodeInfo");
+                    activeNodeInfo.innerHTML = `
+                        <label class="label is-small">Active Node Pubkey (click to copy)</label>
+                        <div class="control">
+                            <div class="field has-addons">
+                                <div class="control is-expanded">
+                                    <input class="input is-small is-family-monospace" type="text" id="activeNodePubkey" value="${activeNode.pubkey}" readonly>
+                                </div>
+                                <div class="control">
+                                    <button class="button is-small is-info" id="copyPubkeyBtn">
+                                        <span class="icon is-small">
+                                            <i class="fas fa-copy"></i>
+                                            Copy
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    document
+                        .getElementById("activeNodePubkey")
+                        .addEventListener("click", function () {
+                            this.select();
+                            document.execCommand("copy");
+
+                            const btn =
+                                document.getElementById("copyPubkeyBtn");
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML =
+                                '<span class="icon is-small"><i class="fas fa-check"></i> Copied!</span>';
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                            }, 1500);
+                        });
+
+                    document
+                        .getElementById("copyPubkeyBtn")
+                        .addEventListener("click", function () {
+                            const input =
+                                document.getElementById("activeNodePubkey");
+                            input.select();
+                            document.execCommand("copy");
+
+                            // Provide feedback
+                            const originalText = this.innerHTML;
+                            this.innerHTML =
+                                '<span class="icon is-small"><i class="fas fa-check"></i> Copied!</span>';
+                            setTimeout(() => {
+                                this.innerHTML = originalText;
+                            }, 1500);
+                        });
+
+                    // Display the node's pubkey in debug mode
+                    if (CONFIG.debug) {
+                        console.log(`Active node set to: ${alias}`);
+                        console.log(`Node pubkey: ${activeNode.pubkey}`);
+                    }
+
+                    // Reset last indices and start message monitoring
+                    lastInvoiceIndex = null;
+                    loadHistoricalMessages().then(() => {
+                        startMessagePolling();
+                    });
+                }
+                currentConversationFilter = null;
+            }
+
+            function updateNodeSelector() {
+                const nodes = getNodes();
+                const selector = document.getElementById("nodeSelector");
+                selector.innerHTML = "";
+
+                Object.keys(nodes).forEach((alias) => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "button node-button mr-2 mb-2";
+                    button.textContent = alias;
+                    button.dataset.alias = alias;
+                    button.onclick = () => setActiveNode(alias);
+
+                    const deleteButton = document.createElement("button");
+                    deleteButton.type = "button";
+                    deleteButton.className = "button is-danger is-small ml-2";
+                    deleteButton.textContent = "×";
+                    deleteButton.onclick = (e) => {
+                        e.stopPropagation();
+                        const nodes = getNodes();
+                        delete nodes[alias];
+                        localStorage.setItem(
+                            "lightning_nodes",
+                            JSON.stringify(nodes),
+                        );
+                        updateNodeSelector();
+                        if (activeNode?.alias === alias) {
+                            activeNode = null;
+                            document.getElementById("sendButton").disabled =
+                                true;
+                            if (pollInterval) {
+                                clearInterval(pollInterval);
+                            }
+                        }
+                    };
+
+                    const container = document.createElement("div");
+                    container.className = "is-inline-block mr-2 mb-2";
+                    container.appendChild(button);
+                    container.appendChild(deleteButton);
+                    selector.appendChild(container);
+                });
+            }
+
+            async function createInvoiceForKeysend(
+                destinationPubkey,
+                amountSats,
+                message,
+            ) {
+                if (!activeNode) {
+                    throw new Error("No active node selected");
+                }
+
+                // Create a memo that contains metadata about this keysend
+                const memo = JSON.stringify({
+                    type: CONFIG.keysendInvoiceLabel,
+                    recipient: destinationPubkey,
+                    message: message,
+                    amount: amountSats,
+                    timestamp: Date.now(),
+                });
+
+                // Create an invoice with a random preimage that we'll use for the keysend
+                const invoiceRequest = {
+                    memo: memo,
+                    value: "0", // Zero-value invoice since we're the ones paying
+                    expiry: "86400", // 24 hours
+                    private: true, // No need to broadcast this invoice
+                };
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/invoices`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                            body: JSON.stringify(invoiceRequest),
+                        },
+                    );
+
+                    const result = await response.json();
+
+                    if (CONFIG.debug) {
+                        console.log("Created invoice for keysend:", result);
+                    }
+
+                    // Return the payment hash from the invoice
+                    return {
+                        r_hash: result.r_hash,
+                        payment_addr: result.payment_addr,
+                    };
+                } catch (error) {
+                    console.error(
+                        "Failed to create invoice for keysend:",
+                        error,
+                    );
+                    throw error;
+                }
+            }
+
+            async function cancelInvoice(paymentHash) {
+                if (!activeNode || !paymentHash) return false;
+
+                try {
+                    if (CONFIG.debug) {
+                        console.log(
+                            `Attempting to cancel invoice with payment hash: ${paymentHash}`,
+                        );
+                    }
+
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v2/invoices/cancel`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                            body: JSON.stringify({
+                                payment_hash: paymentHash,
+                            }),
+                        },
+                    );
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(
+                            `Failed to cancel invoice: ${response.status} - ${errorText}`,
+                        );
+                        return false;
+                    }
+
+                    if (CONFIG.debug) {
+                        console.log(
+                            `Successfully canceled invoice with payment hash: ${paymentHash}`,
+                        );
+                    }
+                    return true;
+                } catch (error) {
+                    console.error("Error canceling invoice:", error);
+                    return false;
+                }
+            }
+
+            async function loadHistoricalMessages() {
+                if (!activeNode) return;
+
+                const messageList = document.getElementById("messageList");
+                messageList.innerHTML =
+                    '<div class="has-text-centered">Loading messages...</div>';
+
+                try {
+                    // Load incoming messages (messages sent to us)
+                    const incomingMessages = await fetchIncomingMessages();
+
+                    // Load outgoing messages (messages we sent)
+                    const outgoingMessages = await fetchOutgoingMessages();
+
+                    messageList.innerHTML = "";
+
+                    // Combine and sort all messages by timestamp
+                    const allMessages = [
+                        ...incomingMessages,
+                        ...outgoingMessages,
+                    ].sort((a, b) => {
+                        const aTime =
+                            a.timestamp instanceof Date
+                                ? a.timestamp.getTime()
+                                : a.timestamp;
+                        const bTime =
+                            b.timestamp instanceof Date
+                                ? b.timestamp.getTime()
+                                : b.timestamp;
+                        return bTime - aTime; // Newest first
+                    });
+
+                    // Set last invoice index for polling
+                    if (incomingMessages.length > 0) {
+                        const settleIndices = incomingMessages
+                            .filter(
+                                (msg) =>
+                                    msg.invoice && msg.invoice.settle_index,
+                            )
+                            .map((msg) => parseInt(msg.invoice.settle_index));
+                        if (settleIndices.length > 0) {
+                            lastInvoiceIndex = Math.max(...settleIndices);
+                        }
+                    }
+
+                    // Display all messages
+                    if (allMessages.length > 0) {
+                        allMessages.forEach((msg) => {
+                            addMessageToBoard(msg);
+                        });
+                    } else {
+                        messageList.innerHTML =
+                            '<div class="has-text-centered">No messages found</div>';
+                    }
+                    updateConversationsList();
+                } catch (error) {
+                    console.error("Error loading messages:", error);
+                    messageList.innerHTML =
+                        '<div class="has-text-centered has-text-danger">Error loading messages: ' +
+                        error.message +
+                        "</div>";
+                }
+            }
+
+            function loadOutgoingMessagesFromStorage() {
+                if (!activeNode) return [];
+
+                const messages = JSON.parse(
+                    localStorage.getItem(CONFIG.storageKey) || "{}",
+                );
+                const nodeMessages = messages[activeNode.alias] || [];
+
+                return nodeMessages.map((msg) => ({
+                    type: "outgoing",
+                    message: msg.message,
+                    amount: msg.amount,
+                    pubkey: msg.pubkey,
+                    senderAlias: activeNode.alias + " (You)",
+                    timestamp: new Date(msg.timestamp),
+                    outgoing: true,
+                    success: msg.success,
+                    error: msg.error,
+                    source: "localStorage", // Mark the source for deduplication
+                }));
+            }
+
+            async function fetchIncomingMessages() {
+                if (!activeNode) return [];
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/invoices?num_max_invoices=${CONFIG.maxHistoricalInvoices}&reversed=true&index_offset=0`,
+                        {
+                            headers: {
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                        },
+                    );
+
+                    const data = await response.json();
+                    if (!data.invoices) return [];
+
+                    // Process incoming invoices
+                    const messages = [];
+                    for (const invoice of data.invoices) {
+                        if (CONFIG.debug) {
+                            console.log("Raw invoice:", invoice);
+                        }
+
+                        // Skip our own keysend tracking invoices
+                        if (
+                            invoice.memo &&
+                            invoice.memo.includes(CONFIG.keysendInvoiceLabel) &&
+                            invoice.state !== "CANCELED"
+                        ) {
+                            continue;
+                        }
+
+                        if (invoice.is_keysend && invoice.state === "SETTLED") {
+                            const messageData = processIncomingMessage(invoice);
+                            if (messageData) {
+                                messages.push(messageData);
+                            }
+                        }
+                    }
+
+                    return messages;
+                } catch (error) {
+                    console.error("Error fetching incoming messages:", error);
+                    return [];
+                }
+            }
+
+            async function fetchOutgoingMessages() {
+                if (!activeNode) return [];
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/invoices?num_max_invoices=${CONFIG.maxHistoricalInvoices}&reversed=true&index_offset=0`,
+                        {
+                            headers: {
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                        },
+                    );
+
+                    const data = await response.json();
+                    if (!data.invoices) return [];
+
+                    // Process outgoing keysend messages from invoices
+                    const messages = [];
+                    for (const invoice of data.invoices) {
+                        if (CONFIG.debug) {
+                            console.log(
+                                "Processing invoice for outgoing message:",
+                                invoice,
+                            );
+                        }
+
+                        // Check if this is our keysend tracking invoice
+                        if (
+                            invoice.memo &&
+                            invoice.memo.includes(CONFIG.keysendInvoiceLabel) &&
+                            invoice.state !== "CANCELED"
+                        ) {
+                            try {
+                                const memoData = JSON.parse(invoice.memo);
+
+                                if (
+                                    memoData.type === CONFIG.keysendInvoiceLabel
+                                ) {
+                                    messages.push({
+                                        type: "outgoing",
+                                        message: memoData.message,
+                                        amount: memoData.amount || 0,
+                                        pubkey: memoData.recipient,
+                                        senderAlias:
+                                            activeNode.alias + " (You)",
+                                        timestamp: new Date(memoData.timestamp),
+                                        outgoing: true,
+                                        success: true,
+                                        invoice: invoice,
+                                        source: "invoice", // Mark source for deduplication
+                                    });
+                                }
+                            } catch (e) {
+                                console.error("Error parsing invoice memo:", e);
+                            }
+                        }
+                    }
+
+                    return messages;
+                } catch (error) {
+                    console.error(
+                        "Error fetching outgoing messages from invoices:",
+                        error,
+                    );
+                    return [];
+                }
+            }
+
+            function processIncomingMessage(invoice) {
+                if (
+                    !invoice.is_keysend ||
+                    invoice.state !== "SETTLED" ||
+                    !invoice.htlcs[0]
+                ) {
+                    return null;
+                }
+
+                const htlc = invoice.htlcs[0];
+                if (!htlc.custom_records) {
+                    return null;
+                }
+
+                try {
+                    // Look for message in the correct TLV record according to KeySend protocol
+                    let message = "No message found";
+                    if (htlc.custom_records["34349334"]) {
+                        // KeySend-Protocol-2: Basic Messages - Message Contents
+                        const messageBase64 = htlc.custom_records["34349334"];
+                        const decodedBytes = atob(messageBase64);
+                        message = new TextDecoder().decode(
+                            Uint8Array.from(decodedBytes, (c) =>
+                                c.charCodeAt(0),
+                            ),
+                        );
+                    } else if (htlc.custom_records["5482373484"]) {
+                        // If no message record, indicate it's a basic KeySend payment
+                        message = "Keysend payment received";
+                    }
+
+                    // Extract sender information
+                    let senderPubkey = null;
+                    if (htlc.custom_records["34349339"]) {
+                        const pubkeyBase64 = htlc.custom_records["34349339"];
+                        const decodedBytes = atob(pubkeyBase64);
+
+                        // Pubkey should be 33 bytes, convert to hex format
+                        senderPubkey = Array.from(decodedBytes)
+                            .map((byte) =>
+                                byte
+                                    .charCodeAt(0)
+                                    .toString(16)
+                                    .padStart(2, "0"),
+                            )
+                            .join("");
+
+                        if (CONFIG.debug) {
+                            console.log(
+                                `Extracted sender pubkey: ${senderPubkey}`,
+                            );
+                        }
+                    }
+
+                    // Get timestamp
+                    let timestamp = new Date(
+                        parseInt(invoice.creation_date) * 1000,
+                    );
+                    if (htlc.custom_records["34349343"]) {
+                        try {
+                            // KeySend-Protocol-2: Epoch Time
+                            const timeBase64 = htlc.custom_records["34349343"];
+                            const timeBytes = atob(timeBase64);
+
+                            // Debug the raw timestamp bytes
+                            if (CONFIG.debug) {
+                                console.log(
+                                    "Raw timestamp bytes:",
+                                    Array.from(timeBytes).map((b) =>
+                                        b.charCodeAt(0),
+                                    ),
+                                );
+                            }
+
+                            // The timestamp is a 64-bit (8 byte) integer in nanoseconds
+                            // We need to properly extract it as a BigInt and then convert to milliseconds
+                            let timeValue = BigInt(0);
+                            for (let i = 0; i < timeBytes.length; i++) {
+                                timeValue =
+                                    (timeValue << BigInt(8)) |
+                                    BigInt(timeBytes.charCodeAt(i));
+                            }
+
+                            // Convert nanoseconds to milliseconds for JavaScript Date
+                            const timeMs = Number(timeValue / BigInt(1000000));
+
+                            if (CONFIG.debug) {
+                                console.log(
+                                    "Extracted timestamp value:",
+                                    timeValue.toString(),
+                                );
+                                console.log(
+                                    "Converted to milliseconds:",
+                                    timeMs,
+                                );
+                            }
+
+                            // Check if the timestamp is reasonable (after 2010 and before 2100)
+                            if (
+                                timeMs > 1262304000000 &&
+                                timeMs < 4102444800000
+                            ) {
+                                timestamp = new Date(timeMs);
+                                if (CONFIG.debug) {
+                                    console.log(
+                                        "Using timestamp from TLV record:",
+                                        timestamp.toISOString(),
+                                    );
+                                }
+                            } else {
+                                console.warn(
+                                    "Timestamp appears invalid, using invoice creation date instead:",
+                                    "Raw value:",
+                                    timeValue.toString(),
+                                    "Milliseconds:",
+                                    timeMs,
+                                );
+                            }
+                        } catch (e) {
+                            console.error("Error parsing timestamp:", e);
+                            // Fall back to invoice creation date
+                            timestamp = new Date(
+                                parseInt(invoice.creation_date) * 1000,
+                            );
+                        }
+                    }
+
+                    let senderAlias = null;
+                    if (htlc.custom_records["34349340"]) {
+                        const aliasBase64 = htlc.custom_records["34349340"];
+                        const decodedBytes = atob(aliasBase64);
+
+                        // This should be a human-readable UTF-8 string
+                        senderAlias = new TextDecoder().decode(
+                            Uint8Array.from(decodedBytes, (c) =>
+                                c.charCodeAt(0),
+                            ),
+                        );
+
+                        if (CONFIG.debug) {
+                            console.log(
+                                `Extracted sender alias: ${senderAlias}`,
+                            );
+                        }
+                    }
+
+                    if (CONFIG.debug) {
+                        console.log(
+                            `Processing incoming message from invoice ${invoice.add_index}:`,
+                        );
+                        console.log(`  Sender Pubkey: ${senderPubkey}`);
+                        console.log(
+                            `  Sender Alias: ${senderAlias || "Unknown"}`,
+                        );
+                        console.log(
+                            `  Message: ${message.substring(0, 30)}${message.length > 30 ? "..." : ""}`,
+                        );
+                    }
+
+                    return {
+                        type: "incoming",
+                        message: message,
+                        amount: invoice.value,
+                        senderAlias: senderAlias,
+                        pubkey: senderPubkey,
+                        timestamp: timestamp,
+                        invoice: invoice,
+                        outgoing: false,
+                    };
+                } catch (error) {
+                    console.error("Error processing message:", error);
+                    return null;
+                }
+            }
+
+            async function pollMessages() {
+                if (!activeNode) return;
+
+                try {
+                    const newIncoming = await pollIncomingMessages();
+                    const newOutgoing = await pollOutgoingMessages();
+
+                    // Add new messages to the message board
+                    [...newIncoming, ...newOutgoing].forEach((msg) => {
+                        addMessageToBoard(msg);
+                    });
+
+                    if (newIncoming.length > 0 || newOutgoing.length > 0) {
+                        updateConversationsList();
+                    }
+                } catch (error) {
+                    console.error("Error polling messages:", error);
+                }
+            }
+
+            async function pollIncomingMessages() {
+                if (!activeNode || !lastInvoiceIndex) return [];
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/invoices?num_max_invoices=20&reversed=true&index_offset=0`,
+                        {
+                            headers: {
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                        },
+                    );
+
+                    const data = await response.json();
+                    if (!data.invoices) return [];
+
+                    const messages = [];
+                    for (const invoice of data.invoices) {
+                        if (CONFIG.debug) {
+                            console.log("Polling invoice:", invoice);
+                        }
+
+                        // Skip our own keysend tracking invoices
+                        if (
+                            invoice.memo &&
+                            invoice.memo.includes(CONFIG.keysendInvoiceLabel)
+                        ) {
+                            continue;
+                        }
+
+                        // Only process newer invoices than the ones we've seen
+                        if (
+                            invoice.settle_index &&
+                            parseInt(invoice.settle_index) >
+                                parseInt(lastInvoiceIndex)
+                        ) {
+                            if (
+                                invoice.is_keysend &&
+                                invoice.state === "SETTLED"
+                            ) {
+                                const messageData =
+                                    processIncomingMessage(invoice);
+                                if (messageData) {
+                                    messages.push(messageData);
+                                }
+                            }
+                        }
+                    }
+
+                    // Update last index
+                    if (messages.length > 0) {
+                        const settleIndices = messages
+                            .filter(
+                                (msg) =>
+                                    msg.invoice && msg.invoice.settle_index,
+                            )
+                            .map((msg) => parseInt(msg.invoice.settle_index));
+
+                        if (settleIndices.length > 0) {
+                            lastInvoiceIndex = Math.max(
+                                ...settleIndices,
+                                lastInvoiceIndex,
+                            );
+                        }
+                    }
+
+                    return messages;
+                } catch (error) {
+                    console.error("Error polling incoming messages:", error);
+                    return [];
+                }
+            }
+
+            async function pollOutgoingMessages() {
+                if (!activeNode) return [];
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/invoices?num_max_invoices=20&reversed=true&index_offset=0`,
+                        {
+                            headers: {
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                        },
+                    );
+
+                    const data = await response.json();
+                    if (!data.invoices) return [];
+
+                    const messages = [];
+                    const processedMemos = new Set(); // To avoid duplicates in polling
+
+                    for (const invoice of data.invoices) {
+                        // Only look for our keysend tracking invoices
+                        if (
+                            invoice.memo &&
+                            invoice.memo.includes(CONFIG.keysendInvoiceLabel) &&
+                            invoice.state !== "CANCELED"
+                        ) {
+                            try {
+                                // Avoid processing the same memo twice
+                                if (processedMemos.has(invoice.memo)) {
+                                    continue;
+                                }
+                                processedMemos.add(invoice.memo);
+
+                                const memoData = JSON.parse(invoice.memo);
+
+                                if (
+                                    memoData.type === CONFIG.keysendInvoiceLabel
+                                ) {
+                                    // Check if we've already displayed this message (based on timestamp)
+                                    const existingMessages =
+                                        document.querySelectorAll(
+                                            ".message-item",
+                                        );
+                                    let isDuplicate = false;
+
+                                    for (const elem of existingMessages) {
+                                        if (
+                                            elem.dataset.timestamp ===
+                                                memoData.timestamp.toString() &&
+                                            elem.dataset.pubkey ===
+                                                memoData.recipient
+                                        ) {
+                                            isDuplicate = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!isDuplicate) {
+                                        messages.push({
+                                            type: "outgoing",
+                                            message: memoData.message,
+                                            amount: memoData.amount || 0,
+                                            pubkey: memoData.recipient,
+                                            senderAlias:
+                                                activeNode.alias + " (You)",
+                                            timestamp: new Date(
+                                                memoData.timestamp,
+                                            ),
+                                            outgoing: true,
+                                            success: true,
+                                            invoice: invoice,
+                                            source: "invoice", // Mark source for deduplication
+                                        });
+                                    }
+                                }
+                            } catch (e) {
+                                console.error(
+                                    "Error parsing invoice memo during poll:",
+                                    e,
+                                );
+                            }
+                        }
+                    }
+
+                    return messages;
+                } catch (error) {
+                    console.error("Error polling outgoing messages:", error);
+                    return [];
+                }
+            }
+
+            function startMessagePolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+
+                if (!activeNode) return;
+
+                const pollIntervalInput =
+                    document.getElementById("pollIntervalInput");
+                const interval = Math.max(1000, pollIntervalInput.value * 1000);
+
+                pollMessages();
+                pollInterval = setInterval(pollMessages, interval);
+            }
+
+            function addMessageToBoard(messageData) {
+                const messageList = document.getElementById("messageList");
+
+                if (CONFIG.debug) {
+                    console.log(`========== ADDING MESSAGE ==========`);
+                    console.log(
+                        `Type: ${messageData.outgoing ? "Outgoing" : "Incoming"}`,
+                    );
+                    console.log(`Pubkey: '${messageData.pubkey || "not set"}'`);
+                    console.log(`Our pubkey: '${activeNode.pubkey}'`);
+                    console.log(
+                        `Sender: ${messageData.senderAlias || "Unknown"}`,
+                    );
+                    console.log(
+                        `Message: ${messageData.message.substring(0, 30)}${messageData.message.length > 30 ? "..." : ""}`,
+                    );
+                    console.log(
+                        `Current filter: ${currentConversationFilter || "None (showing all)"}`,
+                    );
+                }
+
+                // Skip messages with no pubkey
+                if (!messageData.pubkey && messageData.type === "incoming") {
+                    console.warn(
+                        "Skipping incoming message with no pubkey:",
+                        messageData,
+                    );
+                    return;
+                }
+
+                // Check if this message is already displayed
+                const existingMessages =
+                    document.querySelectorAll(".message-item");
+                for (const elem of existingMessages) {
+                    const timestamp = elem.dataset.timestamp;
+                    const pubkey = elem.dataset.pubkey;
+
+                    // If we have timestamp and pubkey match, it's likely the same message
+                    if (
+                        timestamp &&
+                        pubkey &&
+                        timestamp ===
+                            messageData.timestamp.getTime().toString() &&
+                        pubkey === messageData.pubkey
+                    ) {
+                        if (CONFIG.debugFiltering) {
+                            console.log(`Skipping duplicate message`);
+                            console.log(
+                                `========== END ADDING MESSAGE ==========`,
+                            );
+                        }
+                        return; // Skip adding duplicate message
+                    }
+                }
+
+                const messageElement = document.createElement("div");
+
+                if (messageData.outgoing) {
+                    messageElement.className = "message-item outgoing";
+                } else {
+                    messageElement.className = "message-item";
+                    messageElement.style.cursor = "pointer";
+                }
+
+                // For conversation filtering, we store:
+                // - For outgoing messages: Store the destination pubkey
+                // - For incoming messages: Store the sender pubkey
+                messageElement.dataset.timestamp =
+                    messageData.timestamp.getTime();
+                messageElement.dataset.pubkey = messageData.pubkey || "";
+
+                // Add extra debug info as data attributes in debug mode
+                if (CONFIG.debugFiltering) {
+                    messageElement.dataset.debug = `${messageData.outgoing ? "OUT" : "IN"} | ${messageData.message.substring(0, 20)}`;
+                    messageElement.dataset.direction = messageData.outgoing
+                        ? "outgoing"
+                        : "incoming";
+                }
+
+                if (!messageData.outgoing && messageData.pubkey) {
+                    messageElement.addEventListener("click", function () {
+                        document.getElementById("pubkey").value =
+                            messageData.pubkey;
+                        document.getElementById("message").focus();
+                        filterByConversation(messageData.pubkey);
+                    });
+                }
+
+                let senderDisplay;
+                if (messageData.outgoing) {
+                    senderDisplay = messageData.senderAlias || "You";
+                } else {
+                    senderDisplay = messageData.senderAlias || "Unknown sender";
+                }
+
+                // Apply current filter - if we're filtering to a specific conversation
+                // and this message doesn't belong to it, hide it
+                let shouldShow = true;
+
+                if (currentConversationFilter) {
+                    if (messageData.outgoing) {
+                        // For outgoing messages, check if the destination matches the filter
+                        shouldShow =
+                            messageData.pubkey === currentConversationFilter;
+                    } else {
+                        // For incoming messages, check if the sender matches the filter
+                        shouldShow =
+                            messageData.pubkey === currentConversationFilter;
+                    }
+                }
+
+                if (CONFIG.debug) {
+                    console.log(`Should show message? ${shouldShow}`);
+                    if (!shouldShow) {
+                        console.log(
+                            `Hiding because ${messageData.outgoing ? "destination" : "sender"} pubkey doesn't match current filter`,
+                        );
+                    }
+                }
+
+                if (!shouldShow) {
+                    messageElement.style.display = "none";
+                }
+
+                // Add a hint of message direction for clarity
+                const directionIndicator = messageData.outgoing ? "→" : "←";
+
+                messageElement.innerHTML = `
+                    <div class="timestamp">${messageData.timestamp.toLocaleString()}</div>
+                    <div class="amount">${messageData.amount} sats</div>
+                    <div class="pubkey">${senderDisplay} ${directionIndicator}</div>
+                    <div class="content">${escapeHtml(messageData.message)}</div>
+                `;
+
+                messageList.insertBefore(
+                    messageElement,
+                    messageList.firstChild,
+                );
+
+                if (CONFIG.debug) {
+                    console.log(`Message added to board`);
+                    console.log(`========== END ADDING MESSAGE ==========`);
+                }
+
+                updateConversationsList();
+            }
+
+            function escapeHtml(unsafe) {
+                if (!unsafe) return "";
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            async function keysend(destinationPubkey, amountSats, message) {
+                if (!activeNode) {
+                    throw new Error("No active node selected");
+                }
+
+                if (!activeNode.pubkey) {
+                    throw new Error(
+                        "Node pubkey not available. Please reconnect the node.",
+                    );
+                }
+
+                // Generate random 32-byte preimage that we'll use for both the invoice and payment
+                const preimageArray = new Uint8Array(32);
+                crypto.getRandomValues(preimageArray);
+
+                // Base64 encode the preimage for both invoice and keysend
+                const preimageBase64 = btoa(
+                    String.fromCharCode.apply(null, preimageArray),
+                );
+
+                // Calculate payment hash from preimage
+                const paymentHashBuffer = await crypto.subtle.digest(
+                    "SHA-256",
+                    preimageArray,
+                );
+                const paymentHashArray = new Uint8Array(paymentHashBuffer);
+                const paymentHashBase64 = btoa(
+                    String.fromCharCode.apply(null, paymentHashArray),
+                );
+
+                // First, create a tracking invoice
+                let trackingInvoiceHash = null;
+                try {
+                    const memo = JSON.stringify({
+                        type: CONFIG.keysendInvoiceLabel,
+                        recipient: destinationPubkey,
+                        message: message,
+                        amount: amountSats,
+                        timestamp: Date.now(),
+                    });
+
+                    const invoiceResponse = await fetch(
+                        `${activeNode.endpoint}/v1/invoices`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                            body: JSON.stringify({
+                                memo: memo,
+                                r_preimage: preimageBase64,
+                                value: "0",
+                                expiry: "86400",
+                                private: true,
+                            }),
+                        },
+                    );
+
+                    if (!invoiceResponse.ok) {
+                        const errorText = await invoiceResponse.text();
+                        throw new Error(
+                            `Invoice creation failed: ${invoiceResponse.status} - ${errorText}`,
+                        );
+                    }
+
+                    const invoiceResult = await invoiceResponse.json();
+                    trackingInvoiceHash = invoiceResult.r_hash;
+
+                    if (CONFIG.debug) {
+                        console.log(
+                            "Created tracking invoice with custom preimage:",
+                            invoiceResult,
+                        );
+                    }
+                } catch (err) {
+                    console.error("Error creating tracking invoice:", err);
+                    throw new Error(`Payment failed: ${err}`);
+                }
+
+                // Prepare message in KeySend-Protocol-2 format
+                const messageBytes = new TextEncoder().encode(message);
+                const messageBase64 = btoa(
+                    String.fromCharCode.apply(null, messageBytes),
+                );
+
+                // Include sender alias (node name)
+                const senderAliasBytes = new TextEncoder().encode(
+                    activeNode.identity_alias,
+                );
+                const senderAliasBase64 = btoa(
+                    String.fromCharCode.apply(null, senderAliasBytes),
+                );
+
+                // Convert the stored node pubkey to base64
+                const nodePubkeyBytes = new Uint8Array(
+                    activeNode.pubkey
+                        .match(/.{1,2}/g)
+                        .map((byte) => parseInt(byte, 16)),
+                );
+                const nodePubkeyBase64 = btoa(
+                    String.fromCharCode.apply(null, nodePubkeyBytes),
+                );
+
+                // Timestamp
+                const timeNs = BigInt(Date.now()) * BigInt(1000000);
+                const timeBuffer = new ArrayBuffer(8);
+                const timeView = new DataView(timeBuffer);
+                timeView.setBigUint64(0, timeNs, false);
+                const timeBytes = new Uint8Array(timeBuffer);
+                const timeBase64 = btoa(
+                    String.fromCharCode.apply(null, timeBytes),
+                );
+
+                // Custom records according to KeySend protocols
+                // https://github.com/satoshisstream/satoshis.stream/blob/main/TLV_registry.md
+                const customRecords = {
+                    5482373484: preimageBase64, // Keysend preimage
+                    34349334: messageBase64, // Message contents
+                    34349343: timeBase64, // Timestamp
+                    34349339: nodePubkeyBase64, // Sender pubkey (proper identity field)
+                    34349340: senderAliasBase64, // Node name/alias (human-readable)
+                };
+
+                // Convert destination pubkey to base64
+                const pubkeyBytes = new Uint8Array(
+                    destinationPubkey
+                        .match(/.{1,2}/g)
+                        .map((byte) => parseInt(byte, 16)),
+                );
+                const destBase64 = btoa(
+                    String.fromCharCode.apply(null, pubkeyBytes),
+                );
+
+                const paymentRequest = {
+                    dest: destBase64,
+                    amt: amountSats.toString(),
+                    dest_custom_records: customRecords,
+                    payment_hash: paymentHashBase64,
+                    fee_limit: { fixed: 10 },
+                };
+
+                if (CONFIG.debug) {
+                    console.log("Sending payment:", paymentRequest);
+                }
+
+                try {
+                    const response = await fetch(
+                        `${activeNode.endpoint}/v1/channels/transactions`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                            body: JSON.stringify(paymentRequest),
+                        },
+                    );
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(
+                            `Payment failed: ${response.status} - ${errorText}`,
+                        );
+                    }
+
+                    const result = await response.json();
+
+                    if (result.payment_error || result.error) {
+                        throw new Error(
+                            result.payment_error ||
+                                result.error ||
+                                "Unknown payment error",
+                        );
+                    }
+
+                    if (!result.payment_route && !result.payment_preimage) {
+                        throw new Error(
+                            "Payment did not complete successfully",
+                        );
+                    }
+
+                    return result;
+                } catch (error) {
+                    console.error("Keysend failed:", error);
+
+                    if (trackingInvoiceHash) {
+                        await cancelInvoice(trackingInvoiceHash);
+                    }
+
+                    throw error;
+                }
+            }
+
+            function timeSinceString(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+
+                let interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + "d ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + "h ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + "m ago";
+                }
+                return "just now";
+            }
+
+            function updateConversationsList() {
+                if (!activeNode) return;
+
+                const conversationsList =
+                    document.getElementById("conversationsList");
+                conversationsList.innerHTML = ""; // Clear existing buttons
+
+                // Get all incoming and outgoing messages
+                const messages = getAllMessagesForActiveNode();
+
+                // Extract unique conversation partners (each representing a conversation)
+                const conversations = new Map();
+
+                messages.forEach((msg) => {
+                    const partnerPubkey = msg.pubkey;
+                    if (!partnerPubkey) return;
+
+                    if (!conversations.has(partnerPubkey)) {
+                        // Get an appropriate name for the conversation partner
+                        let conversationName;
+
+                        if (msg.outgoing) {
+                            // For outgoing messages, try to find an incoming message from the same pubkey
+                            // to get the sender's alias
+                            const incomingFromSamePubkey = messages.find(
+                                (m) =>
+                                    !m.outgoing &&
+                                    m.pubkey === partnerPubkey &&
+                                    m.senderAlias,
+                            );
+
+                            conversationName =
+                                incomingFromSamePubkey?.senderAlias ||
+                                partnerPubkey.substring(0, 10) + "...";
+                        } else {
+                            // For incoming messages, use the sender's alias
+                            conversationName =
+                                msg.senderAlias ||
+                                partnerPubkey.substring(0, 10) + "...";
+                        }
+
+                        if (CONFIG.debug) {
+                            console.log(
+                                `Creating conversation for ${partnerPubkey}`,
+                            );
+                            console.log(`Using name: ${conversationName}`);
+                            if (msg.senderAlias) {
+                                console.log(
+                                    `Message has senderAlias: ${msg.senderAlias}`,
+                                );
+                            }
+                        }
+
+                        conversations.set(partnerPubkey, {
+                            pubkey: partnerPubkey,
+                            alias: conversationName,
+                            lastMessage: msg.message,
+                            timestamp:
+                                msg.timestamp instanceof Date
+                                    ? msg.timestamp
+                                    : new Date(msg.timestamp),
+                        });
+                    } else {
+                        // Update if this message is newer
+                        const existing = conversations.get(partnerPubkey);
+                        const msgTime =
+                            msg.timestamp instanceof Date
+                                ? msg.timestamp
+                                : new Date(msg.timestamp);
+
+                        if (msgTime > existing.timestamp) {
+                            existing.lastMessage = msg.message;
+                            existing.timestamp = msgTime;
+                            conversations.set(partnerPubkey, existing);
+                        }
+                    }
+                });
+
+                // Sort conversations by most recent message
+                const sortedConversations = Array.from(
+                    conversations.values(),
+                ).sort((a, b) => b.timestamp - a.timestamp);
+
+                // Create a button for each conversation
+                sortedConversations.forEach((conversation) => {
+                    const button = document.createElement("button");
+                    button.className = "button";
+                    if (currentConversationFilter === conversation.pubkey) {
+                        button.classList.add("is-primary");
+                    }
+
+                    // Store the pubkey for easy filtering
+                    button.dataset.pubkey = conversation.pubkey;
+
+                    const timeSince = timeSinceString(conversation.timestamp);
+
+                    button.innerHTML = `
+                        <span>${conversation.alias}</span>
+                        <span class="is-size-7 ml-2">${timeSince}</span>
+                    `;
+
+                    // Add a preview of the last message as a tooltip
+                    button.title = `${conversation.lastMessage?.substring(0, 50)}${conversation.lastMessage?.length > 50 ? "..." : ""}`;
+
+                    button.addEventListener("click", () => {
+                        filterByConversation(conversation.pubkey);
+                    });
+
+                    conversationsList.appendChild(button);
+                });
+            }
+
+            function getAllMessagesForActiveNode() {
+                const allMessages = [];
+
+                // Add messages from localStorage (if you still use this approach)
+                const storageMessages = loadOutgoingMessagesFromStorage();
+                allMessages.push(...storageMessages);
+
+                // Add the messages from the current DOM
+                const messageElements =
+                    document.querySelectorAll(".message-item");
+                messageElements.forEach((elem) => {
+                    if (elem.dataset.pubkey && elem.dataset.timestamp) {
+                        const isOutgoing = elem.classList.contains("outgoing");
+                        const content =
+                            elem.querySelector(".content")?.textContent || "";
+
+                        // Fix: Get the sender alias without the direction indicator
+                        const senderElement = elem.querySelector(".pubkey");
+                        let senderText = senderElement?.textContent || "";
+                        // Remove direction indicators (→ or ←) if present
+                        senderText = senderText.replace(/[→←]/g, "").trim();
+
+                        const amountText =
+                            elem.querySelector(".amount")?.textContent ||
+                            "0 sats";
+                        const amount = parseInt(amountText.split(" ")[0]) || 0;
+
+                        // The pubkey in the dataset is:
+                        // - For outgoing messages: the destination pubkey
+                        // - For incoming messages: the sender pubkey
+                        const partnerPubkey = elem.dataset.pubkey;
+
+                        allMessages.push({
+                            outgoing: isOutgoing,
+                            pubkey: partnerPubkey,
+                            message: content,
+                            senderAlias: senderText,
+                            amount: amount,
+                            timestamp: new Date(
+                                parseInt(elem.dataset.timestamp),
+                            ),
+                        });
+                    }
+                });
+
+                return allMessages;
+            }
+
+            function filterByConversation(partnerPubkey) {
+                if (CONFIG.debug) {
+                    console.log(`========== FILTERING CONVERSATION ==========`);
+                    console.log(
+                        `Filtering for conversation with: ${partnerPubkey}`,
+                    );
+                    console.log(`Our node pubkey: ${activeNode.pubkey}`);
+                }
+
+                currentConversationFilter = partnerPubkey;
+
+                // Update the conversation buttons
+                const buttons = document.querySelectorAll(
+                    "#conversationsList button",
+                );
+                buttons.forEach((btn) => {
+                    btn.classList.remove("is-primary");
+                    const buttonPubkey = btn.dataset.pubkey;
+                    if (buttonPubkey === partnerPubkey) {
+                        btn.classList.add("is-primary");
+                    }
+                });
+
+                // Remove is-info from the "All Messages" button when filtering
+                document
+                    .getElementById("allConversationsBtn")
+                    .classList.remove("is-info");
+
+                let partnerAlias = partnerPubkey.substring(0, 10) + "...";
+                const partnerButton = Array.from(buttons).find(
+                    (btn) => btn.dataset.pubkey === partnerPubkey,
+                );
+                if (partnerButton) {
+                    const nameSpan = partnerButton.querySelector("span");
+                    if (nameSpan) {
+                        partnerAlias = nameSpan.textContent.trim();
+                    }
+                }
+
+                // Update the filter text
+                const filterText = document.getElementById("currentFilter");
+                if (filterText) {
+                    filterText.textContent = partnerPubkey
+                        ? `Showing conversation with ${partnerAlias}`
+                        : "Showing all messages";
+                }
+
+                // Apply filter to message list
+                const messageElements =
+                    document.querySelectorAll(".message-item");
+
+                if (CONFIG.debug) {
+                    console.log(
+                        `Total messages found: ${messageElements.length}`,
+                    );
+                    console.log(`Messages being evaluated:`);
+                }
+
+                let visibleCount = 0;
+                let hiddenCount = 0;
+
+                messageElements.forEach((elem, index) => {
+                    // Get the pubkey and direction from the element
+                    const elemPubkey = elem.dataset.pubkey || "";
+                    const isOutgoing = elem.classList.contains("outgoing");
+                    const messageContent =
+                        elem.querySelector(".content")?.textContent ||
+                        "No content";
+                    const truncatedContent =
+                        messageContent.length > 30
+                            ? messageContent.substring(0, 30) + "..."
+                            : messageContent;
+
+                    if (CONFIG.debug) {
+                        console.log(
+                            `[${index}] ${isOutgoing ? "OUT" : "IN"} | Pubkey: '${elemPubkey}' | Message: ${truncatedContent}`,
+                        );
+                    }
+
+                    // If no filter is set, show all messages
+                    if (!partnerPubkey) {
+                        elem.style.display = "";
+                        visibleCount++;
+                        if (CONFIG.debug)
+                            console.log(`   - SHOWING (all messages mode)`);
+                        return;
+                    }
+
+                    // For conversation filtering, we need to check:
+                    // 1. For outgoing messages: Is this message TO the partner pubkey?
+                    // 2. For incoming messages: Is this message FROM the partner pubkey?
+                    let isPartOfConversation = false;
+
+                    if (isOutgoing) {
+                        // Outgoing message: Check if the destination matches the partner pubkey
+                        isPartOfConversation = elemPubkey === partnerPubkey;
+                        if (CONFIG.debug) {
+                            console.log(
+                                `   - Outgoing message TO: ${elemPubkey}`,
+                            );
+                            console.log(
+                                `   - Checking if matches partner: ${partnerPubkey}`,
+                            );
+                            console.log(`   - Match: ${isPartOfConversation}`);
+                        }
+                    } else {
+                        // Incoming message: Check if the sender matches the partner pubkey
+                        isPartOfConversation = elemPubkey === partnerPubkey;
+                        if (CONFIG.debug) {
+                            console.log(
+                                `   - Incoming message FROM: ${elemPubkey}`,
+                            );
+                            console.log(
+                                `   - Checking if matches partner: ${partnerPubkey}`,
+                            );
+                            console.log(`   - Match: ${isPartOfConversation}`);
+                        }
+                    }
+
+                    if (isPartOfConversation) {
+                        elem.style.display = "";
+                        visibleCount++;
+                        if (CONFIG.debug)
+                            console.log(`   - SHOWING (part of conversation)`);
+                    } else {
+                        elem.style.display = "none";
+                        hiddenCount++;
+                        if (CONFIG.debug)
+                            console.log(
+                                `   - HIDING (not part of conversation)`,
+                            );
+                    }
+                });
+
+                if (CONFIG.debug) {
+                    console.log(
+                        `Filtering results: ${visibleCount} shown, ${hiddenCount} hidden`,
+                    );
+                    console.log(`========== END FILTERING ==========`);
+                }
+
+                // Auto-populate the destination pubkey for new messages
+                if (partnerPubkey) {
+                    document.getElementById("pubkey").value = partnerPubkey;
+                }
+            }
+
+            function showAllMessages() {
+                currentConversationFilter = null;
+
+                const buttons = document.querySelectorAll(
+                    "#conversationsList button",
+                );
+                buttons.forEach((btn) => btn.classList.remove("is-primary"));
+
+                document
+                    .getElementById("allConversationsBtn")
+                    .classList.add("is-info");
+
+                const filterText = document.getElementById("currentFilter");
+                if (filterText) {
+                    filterText.textContent = "Showing all messages";
+                }
+
+                const messageElements =
+                    document.querySelectorAll(".message-item");
+                messageElements.forEach((elem) => {
+                    elem.style.display = "";
+                });
+
+                document.getElementById("pubkey").value = "";
+            }
+
+            document.addEventListener("DOMContentLoaded", () => {
+                updateNodeSelector();
+
+                document
+                    .getElementById("allConversationsBtn")
+                    .addEventListener("click", () => {
+                        showAllMessages();
+                    });
+
+                document
+                    .getElementById("allConversationsBtn")
+                    .classList.add("is-info");
+
+                const messageBoard = document.getElementById("messageBoard");
+                const filterIndicator = document.createElement("div");
+                filterIndicator.id = "currentFilter";
+                filterIndicator.className = "has-text-centered mb-3 is-size-7";
+                filterIndicator.textContent = "Showing all messages";
+                messageBoard.insertBefore(
+                    filterIndicator,
+                    messageBoard.firstChild,
+                );
+            });
+
+            document
+                .getElementById("pollIntervalInput")
+                .addEventListener("change", (e) => {
+                    if (activeNode) {
+                        startMessagePolling();
+                    }
+                });
+
+            document
+                .getElementById("nodeForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const endpoint =
+                        document.getElementById("restEndpoint").value;
+                    const macaroon = document.getElementById("macaroon").value;
+
+                    // Show loading message
+                    const responseDiv = document.getElementById("response");
+                    responseDiv.className = "notification is-info";
+                    responseDiv.textContent = "Connecting to node...";
+                    responseDiv.classList.remove("is-hidden");
+
+                    // Try to save the node with validation
+                    const success = await saveNode(endpoint, macaroon);
+
+                    if (success) {
+                        // Clear the form if successful
+                        e.target.reset();
+                    }
+                });
+
+            document
+                .getElementById("keysendForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
+
+                    const pubkey = document.getElementById("pubkey").value;
+                    const amount = parseInt(
+                        document.getElementById("amount").value,
+                    );
+                    const message = document.getElementById("message").value;
+
+                    const sendButton = document.getElementById("sendButton");
+                    const originalButtonText = sendButton.innerHTML;
+                    sendButton.disabled = true;
+                    sendButton.innerHTML =
+                        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
+
+                    const responseDiv = document.getElementById("response");
+                    responseDiv.className = "notification is-info";
+                    responseDiv.textContent = "Sending message...";
+                    responseDiv.classList.remove("is-hidden");
+
+                    try {
+                        const result = await keysend(pubkey, amount, message);
+                        responseDiv.className = "notification is-success";
+                        responseDiv.textContent = "Message sent successfully!";
+                        document.getElementById("message").value = "";
+                    } catch (error) {
+                        console.error("Message send error:", error);
+                        responseDiv.className = "notification is-danger";
+
+                        let errorMessage = error.message || "Unknown error";
+
+                        if (
+                            error.message &&
+                            error.message.includes("payment_error")
+                        ) {
+                            try {
+                                const errorJson = JSON.parse(error.message);
+                                errorMessage =
+                                    errorJson.payment_error || errorMessage;
+                            } catch (e) {
+                                // If parsing fails, just use the original error message
+                            }
+                        }
+
+                        responseDiv.textContent = `Message failed: ${errorMessage}`;
+                    } finally {
+                        sendButton.disabled = false;
+                        sendButton.innerHTML = originalButtonText;
+
+                        setTimeout(() => {
+                            responseDiv.classList.add("is-hidden");
+                        }, 5000); // Show error messages for a bit longer
+                    }
+                });
+
+            // Cleanup on page unload
+            window.addEventListener("beforeunload", () => {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+            });
+        </script>
+    </body>
+</html>
