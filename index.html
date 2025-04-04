@@ -1320,21 +1320,25 @@
                     );
                 }
 
-                // Generate random 32-byte preimage that we'll use for both the invoice and payment
+                // Generate random 32-byte preimage using Web Crypto API
                 const preimageArray = new Uint8Array(32);
-                crypto.getRandomValues(preimageArray);
+                window.crypto.getRandomValues(preimageArray);
 
-                // Base64 encode the preimage for both invoice and keysend
+                // Base64 encode the preimage
                 const preimageBase64 = btoa(
                     String.fromCharCode.apply(null, preimageArray),
                 );
 
-                // Calculate payment hash from preimage
-                const paymentHashBuffer = await crypto.subtle.digest(
+                // Calculate payment hash from preimage using Web Crypto API
+                const paymentHashBuffer = await window.crypto.subtle.digest(
                     "SHA-256",
                     preimageArray,
                 );
+
+                // Convert ArrayBuffer to Uint8Array
                 const paymentHashArray = new Uint8Array(paymentHashBuffer);
+
+                // Base64 encode the payment hash
                 const paymentHashBase64 = btoa(
                     String.fromCharCode.apply(null, paymentHashArray),
                 );
