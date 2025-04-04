@@ -1320,31 +1320,8 @@
                     );
                 }
 
-                // Generate random 32-byte preimage using Web Crypto API
-                const preimageArray = new Uint8Array(32);
-                window.crypto.getRandomValues(preimageArray);
-
-                // Base64 encode the preimage
-                const preimageBase64 = btoa(
-                    String.fromCharCode.apply(null, preimageArray),
-                );
-
-                // Calculate payment hash from preimage using Web Crypto API
-                const paymentHashBuffer = await window.crypto.subtle.digest(
-                    "SHA-256",
-                    preimageArray,
-                );
-
-                // Convert ArrayBuffer to Uint8Array
-                const paymentHashArray = new Uint8Array(paymentHashBuffer);
-
-                // Base64 encode the payment hash
-                const paymentHashBase64 = btoa(
-                    String.fromCharCode.apply(null, paymentHashArray),
-                );
-
                 // First, create a tracking invoice
-                let trackingInvoiceHash = null;
+                let trackingInvoice = null;
                 try {
                     const memo = JSON.stringify({
                         type: CONFIG.keysendInvoiceLabel,
@@ -1364,7 +1341,6 @@
                             },
                             body: JSON.stringify({
                                 memo: memo,
-                                r_preimage: preimageBase64,
                                 value: "0",
                                 expiry: "86400",
                                 private: true,
@@ -1379,18 +1355,60 @@
                         );
                     }
 
-                    const invoiceResult = await invoiceResponse.json();
-                    trackingInvoiceHash = invoiceResult.r_hash;
+                    trackingInvoice = await invoiceResponse.json();
 
                     if (CONFIG.debug) {
                         console.log(
-                            "Created tracking invoice with custom preimage:",
-                            invoiceResult,
+                            "Created tracking invoice:",
+                            trackingInvoice,
                         );
                     }
                 } catch (err) {
                     console.error("Error creating tracking invoice:", err);
                     throw new Error(`Payment failed: ${err}`);
+                }
+
+                let preimageBase64;
+                try {
+                    const rHashBase64 = trackingInvoice.r_hash;
+                    const rHashBytes = atob(rHashBase64);
+
+                    const rHashHex = Array.from(rHashBytes, (byte) =>
+                        byte.charCodeAt(0).toString(16).padStart(2, "0"),
+                    ).join("");
+
+                    const lookupResponse = await fetch(
+                        `${activeNode.endpoint}/v1/invoice/${rHashHex}`,
+                        {
+                            headers: {
+                                "Grpc-Metadata-macaroon": activeNode.macaroon,
+                            },
+                        },
+                    );
+
+                    if (!lookupResponse.ok) {
+                        const errorText = await lookupResponse.text();
+                        throw new Error(
+                            `Failed to lookup invoice: ${lookupResponse.status} - ${errorText}`,
+                        );
+                    }
+
+                    const invoiceDetails = await lookupResponse.json();
+
+                    if (CONFIG.debug) {
+                        console.log("Invoice details:", invoiceDetails);
+                    }
+
+                    // Get the preimage from the invoice details
+                    if (!invoiceDetails.r_preimage) {
+                        throw new Error("Could not get preimage from invoice");
+                    }
+
+                    preimageBase64 = invoiceDetails.r_preimage;
+                } catch (err) {
+                    console.error("Error getting preimage:", err);
+                    await cancelInvoice(trackingInvoice.r_hash);
+                    throw new Error(`Payment failed: ${err.message}`);
                 }
 
                 // Prepare message in KeySend-Protocol-2 format
@@ -1451,7 +1469,7 @@
                     dest: destBase64,
                     amt: amountSats.toString(),
                     dest_custom_records: customRecords,
-                    payment_hash: paymentHashBase64,
+                    payment_hash: trackingInvoice.r_hash,
                     fee_limit: { fixed: 10 },
                 };
 
@@ -1499,8 +1517,8 @@
                 } catch (error) {
                     console.error("Keysend failed:", error);
 
-                    if (trackingInvoiceHash) {
-                        await cancelInvoice(trackingInvoiceHash);
+                    if (trackingInvoice && trackingInvoice.r_hash) {
+                        await cancelInvoice(trackingInvoice.r_hash);
                     }
 
                     throw error;
